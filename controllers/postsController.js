@@ -4,10 +4,7 @@ const { kebabCase } = require("lodash");
 // mostro tutti i post in rotta index 
 async function index(req, res) {
     try {
-        // Estrai i parametri di query dalla richiesta
         const { published, content } = req.query;
-
-        // Costruisci il filtro in base ai parametri
         const filter = {};
         if (published) {
             filter.published = published.toLowerCase() === 'true';
@@ -18,13 +15,9 @@ async function index(req, res) {
                 { content: { contains: content.toLowerCase() } },
             ];
         }
-
-        // Esegui la query al database
         const posts = await prisma.post.findMany({
             where: filter,
         });
-
-        // Ritorna i risultati
         res.json(posts);
     } catch (error) {
         console.error("Errore durante il recupero dei post:", error);
