@@ -1,6 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const { kebabCase } = require("lodash");
+
 // mostro tutti i post in rotta index 
 async function index(req, res) {
     try {
@@ -24,20 +25,56 @@ async function index(req, res) {
         res.status(500).json({ error: "Errore interno del server" });
     }
 }
+
+
+
 //per inserire nel db
-async function store(req, res) {
-    const insertData = req.body;
-    const slug = kebabCase(insertData.title);
-    const newPost = await prisma.post.create({
-        data: {
-            title: insertData.title,
+//se lo slug esiste
+async function isSlugExists(slug) {
+    const existingPost = await prisma.post.findUnique({
+        where: {
             slug: slug,
-            image: insertData.image,
-            content: insertData.content,
-            published: insertData.published,
-        }
-    })
-    return res.json(newPost);
+        },
+    });
+
+    return existingPost !== null;
+}
+//genera uno slug univoco con counter vicino se già presente 
+async function generateUniqueSlug(baseSlug) {
+    let slug = baseSlug;
+    let counter = 1;
+
+    while (await isSlugExists(slug)) {
+        slug = `${baseSlug}-${counter}`;
+        counter++;
+    }
+
+    return slug;
+}
+
+
+
+async function store(req, res) {
+    try {
+        const insertData = req.body;
+        const baseSlug = kebabCase(insertData.title);
+        const uniqueSlug = await generateUniqueSlug(baseSlug);
+
+        const newPost = await prisma.post.create({
+            data: {
+                title: insertData.title,
+                slug: uniqueSlug,
+                image: insertData.image,
+                content: insertData.content,
+                published: insertData.published,
+            },
+        });
+
+        return res.json(newPost);
+    } catch (error) {
+        console.error("Error during database insertion:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
 }
 //mostro un singolo elemento tramite slug  con show
 async function show(req, res) {
@@ -59,6 +96,11 @@ async function update(req, res) {
     const dbSlug = req.params.slug;
     const updateData = req.body;
     console.log(dbSlug);
+    if (updateData.title) {
+        const baseSlug = kebabCase(updateData.title);
+        const uniqueSlug = await generateUniqueSlug(baseSlug);
+        updateData.slug = uniqueSlug;
+    }
     const post = await prisma.post.findUnique({
         where: {
             slug: dbSlug,
@@ -86,9 +128,10 @@ async function destroy(req, res) {
             slug: dbSlug,
         },
     });
-    return res.json({ message: "Pizza eliminata" });
+    return res.json({ message: "Post eliminato" });
 
 }
+
 module.exports = {
     index,
     store,
